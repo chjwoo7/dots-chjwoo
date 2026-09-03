@@ -5,9 +5,13 @@
 -- and Discord ask on every incoming message, which drags you out of whatever
 -- you were doing.
 --
--- Suppressing only `activatefocus` for these apps keeps the useful half of the
--- behaviour: clicking a link still raises the browser, and notifications still
--- appear normally. Only the unrequested workspace jump is dropped.
+-- `activatefocus` alone only stops the focus grab; the workspace still follows
+-- the activate request itself, so both have to be suppressed. Notifications
+-- still appear normally, and clicking a link still raises the browser, because
+-- this is scoped to these apps rather than turning focus_on_activate off.
+--
+-- Window rules attach when a window is mapped, so an app already running when
+-- this changed has to be restarted before the rule applies to it.
 local noAutoSwitch = {
     "^(org\\.telegram\\.desktop)$",
     "^(discord)$",
@@ -16,5 +20,5 @@ local noAutoSwitch = {
 }
 
 for _, cls in ipairs(noAutoSwitch) do
-    hl.window_rule({ match = { class = cls }, suppress_event = "activatefocus" })
+    hl.window_rule({ match = { class = cls }, suppress_event = "activate activatefocus" })
 end
