@@ -16,7 +16,7 @@ Item {
     readonly property string conservationPath: "/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode"
 
     // Dijaga sinkron dengan keybind CTRL+Print di ~/.config/hypr/custom/keybinds.lua
-    readonly property string snipCommand: "grim -g \"$(slurp)\" - | satty -f - --early-exit --actions-on-enter save-to-clipboard --initial-tool rectangle"
+    readonly property string snipCommand: "grim -g \"$(slurp)\" - | satty -f - --early-exit --actions-on-enter save-to-clipboard --copy-command wl-copy --initial-tool rectangle"
 
     property bool conservationOn: false
     property bool available: false
