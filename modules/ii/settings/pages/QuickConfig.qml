@@ -12,6 +12,21 @@ import qs.modules.common.models
 
 ContentPage {
     id: page
+
+    // Visual accent-colour picker. The stock shell could only sample a colour
+    // from the wallpaper or from hyprpicker, so a colour that was not already
+    // on screen could not be chosen without looking up its hex elsewhere.
+    ColorPickerDialog {
+        id: accentPicker
+        onAccepted: (hex) => {
+            Quickshell.execDetached([Directories.wallpaperSwitchScriptPath,
+                                     "--noswitch", "--color", hex]);
+        }
+        onPickFromScreen: {
+            Quickshell.execDetached([Directories.wallpaperSwitchScriptPath,
+                                     "--noswitch", "--color"]);
+        }
+    }
     property bool isMinimal: Config.options.settings.style === "minimal"
     forceWidth: true
     baseWidth: !isMinimal ? 720 : 600
@@ -117,7 +132,11 @@ ContentPage {
                         anchors.margins: 8
                         iconText: "colorize"
                         onClicked: {
-                            Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--noswitch", "--color"]);
+                            // Seed the picker with the accent colour in effect, so
+                            // opening it does not throw away the current choice.
+                            accentPicker.loadFrom(Config.options.appearance.palette.accentColor
+                                || Appearance.colors.colPrimary);
+                            accentPicker.open();
                         }
                         StyledToolTip {
                             text: "Change accent color"
