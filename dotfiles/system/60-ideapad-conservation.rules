@@ -1,0 +1,6 @@
+# Kasih grup `wheel` akses tulis ke conservation_mode + fn_lock milik ideapad_laptop.
+# Tanpa ini, tombol conservation mode di bar cuma bisa baca, ga bisa nulis.
+# Pasang:  sudo install -m 644 60-ideapad-conservation.rules /etc/udev/rules.d/
+# Terapkan: sudo udevadm control --reload && sudo udevadm trigger -s platform
+ACTION=="add|change", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/sh -c 'chgrp wheel /sys%p/conservation_mode; chmod g+w /sys%p/conservation_mode'"

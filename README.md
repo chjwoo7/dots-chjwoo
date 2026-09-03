@@ -78,6 +78,56 @@ refers to `$qsConfig`, so it follows automatically.
 
 ---
 
+## 🗂️ The `dotfiles/` folder
+
+The shell is only half of a rice. `dotfiles/` carries the rest of the
+configuration this setup actually needs — without it, a fresh clone will not
+even load, because the line that selects this config lives in the Hyprland
+config, not here.
+
+```
+dotfiles/
+├── config/     mirrors ~/.config  (hypr, illogical-impulse, kitty, fish,
+│               fuzzel, wlogout, cava, matugen, Kvantum, GTK themes, ...)
+├── home/       ~/.bashrc, ~/.zshrc, ~/.bash_profile, ~/.gtkrc-2.0
+└── system/     udev rule for Legion/IdeaPad battery conservation mode
+```
+
+Two files in there matter more than the rest:
+
+- `config/hypr/custom/variables.lua` — sets `qsConfig` to this config. Without
+  it Hyprland keeps loading whatever it loaded before.
+- `config/illogical-impulse/config.json` — shell settings, including the bar
+  layout that places the `ChjwooUtils` widget. The QML file alone is not
+  enough for the widget to appear.
+
+### Installing it
+
+```bash
+cp -r dotfiles/config/.  ~/.config/
+cp    dotfiles/home/.*   ~/                       # review first
+sudo cp dotfiles/system/60-ideapad-conservation.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+```
+
+Look at what you are overwriting before running that on a machine you care
+about.
+
+### Keeping it up to date
+
+`dotfiles/` holds copies, not the live files. After changing anything under
+`~/.config`, re-sync before committing:
+
+```bash
+./sync-dotfiles.sh
+git add dotfiles && git commit -m "sync dotfiles"
+```
+
+The script skips `*.bak*` files and the illogical-impulse installer manifest.
+It never touches application data such as browser or Discord profiles.
+
+---
+
 ## ✨ Changes in this fork
 
 ### Cheatsheet, restored
