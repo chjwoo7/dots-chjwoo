@@ -1,11 +1,9 @@
--- No application may pull the workspace out from under you.
+-- focus_on_activate is deliberately left at the stock `true` here.
 --
--- hyprland/general.lua sets focus_on_activate = true, which makes Hyprland
--- honour any window's xdg-activation request by switching to its workspace.
--- Chat apps fire that on every incoming message.
+-- Turning it off globally also killed the useful half: clicking a link no
+-- longer took you to the browser. The chat apps that actually misbehave are
+-- handled per-app in custom/rules.lua instead.
 --
--- The trade-off: Hyprland cannot tell an activation you asked for from one you
--- did not. With this off, clicking a link in a chat app still opens it in the
--- browser, but you stay on the workspace you were working on instead of being
--- taken to the browser.
-hl.config({ misc = { focus_on_activate = false } })
+-- These are two different windows asking, which is why the split works:
+--   notification  -> Telegram asks to be activated   -> suppressed by rule
+--   link click    -> the browser asks to be activated -> allowed through

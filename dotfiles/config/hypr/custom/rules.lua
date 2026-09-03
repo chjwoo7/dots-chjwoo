@@ -1,14 +1,14 @@
--- Per-app fallback. custom/general.lua now turns focus_on_activate off for
--- everything, which makes these redundant today. They are kept so that
--- flipping that setting back on (to get link clicks raising the browser again)
--- does not also bring back chat apps stealing the workspace.
---
 -- Stop chat apps from yanking you to their workspace on every notification.
 --
 -- misc.focus_on_activate is true in hyprland/general.lua, so when a window
 -- asks to be activated Hyprland honours it and switches workspaces. Telegram
 -- and Discord ask on every incoming message, which drags you out of whatever
 -- you were doing.
+--
+-- This is the targeted half of the fix. focus_on_activate stays on globally
+-- (see custom/general.lua) so that clicking a link still raises the browser:
+-- on a link click it is the browser asking to be activated, not the chat app,
+-- so these rules do not get in the way.
 --
 -- `activatefocus` alone only stops the focus grab; the workspace still follows
 -- the activate request itself, so both have to be suppressed. Notifications
