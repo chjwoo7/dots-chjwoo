@@ -1,3 +1,8 @@
+-- Per-app fallback. custom/general.lua now turns focus_on_activate off for
+-- everything, which makes these redundant today. They are kept so that
+-- flipping that setting back on (to get link clicks raising the browser again)
+-- does not also bring back chat apps stealing the workspace.
+--
 -- Stop chat apps from yanking you to their workspace on every notification.
 --
 -- misc.focus_on_activate is true in hyprland/general.lua, so when a window

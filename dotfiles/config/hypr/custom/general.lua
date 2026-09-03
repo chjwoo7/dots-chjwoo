@@ -1,1 +1,11 @@
-
+-- No application may pull the workspace out from under you.
+--
+-- hyprland/general.lua sets focus_on_activate = true, which makes Hyprland
+-- honour any window's xdg-activation request by switching to its workspace.
+-- Chat apps fire that on every incoming message.
+--
+-- The trade-off: Hyprland cannot tell an activation you asked for from one you
+-- did not. With this off, clicking a link in a chat app still opens it in the
+-- browser, but you stay on the workspace you were working on instead of being
+-- taken to the browser.
+hl.config({ misc = { focus_on_activate = false } })
