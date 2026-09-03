@@ -1,6 +1,21 @@
-# Kasih grup `wheel` akses tulis ke conservation_mode + fn_lock milik ideapad_laptop.
-# Tanpa ini, tombol conservation mode di bar cuma bisa baca, ga bisa nulis.
-# Pasang:  sudo install -m 644 60-ideapad-conservation.rules /etc/udev/rules.d/
-# Terapkan: sudo udevadm control --reload && sudo udevadm trigger -s platform
-ACTION=="add|change", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
-  RUN+="/bin/sh -c 'chgrp wheel /sys%p/conservation_mode; chmod g+w /sys%p/conservation_mode'"
+# Give group `wheel` write access to ideapad_laptop's conservation_mode,
+# so the unprivileged bar widget can toggle the battery charge cap.
+#
+# Install:
+#   sudo install -m 644 60-ideapad-conservation.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload
+#   sudo udevadm trigger -c bind -s platform
+#
+# The earlier version of this rule matched ACTION=="add", which fires when the
+# platform device is registered on the bus. At that point ideapad_acpi has not
+# finished probing, so conservation_mode does not exist yet and chgrp failed
+# with exit code 1 on every boot. ACTION=="bind" fires after the driver binds,
+# when the attribute is there.
+ACTION=="bind", SUBSYSTEM=="platform", DRIVER=="ideapad_acpi", KERNEL=="VPC2004:00", \
+  RUN+="/bin/sh -c 'chgrp wheel /sys%p/conservation_mode && chmod g+w /sys%p/conservation_mode'"
+
+# Keep add|change as a fallback for driver reloads, but guard on the attribute
+# actually existing so it cannot fail noisily the way the old rule did.
+ACTION=="add|change", SUBSYSTEM=="platform", DRIVER=="ideapad_acpi", KERNEL=="VPC2004:00", \
+  TEST=="conservation_mode", \
+  RUN+="/bin/sh -c 'chgrp wheel /sys%p/conservation_mode && chmod g+w /sys%p/conservation_mode'"
