@@ -9,6 +9,7 @@ import Quickshell.Io
 // Custom widget (bukan bagian dari upstream end4-pC). Isinya dua tombol:
 //  1. Toggle ideapad_laptop conservation_mode — batasi charge baterai ~60%.
 //     Butuh udev rule biar sysfs group-writable oleh `wheel` (60-ideapad-conservation.rules).
+//     Hover di tombolnya nampilin popup status On/Off, sama gayanya dgn popup baterai.
 //  2. Snip + anotasi pakai satty. Sama persis dgn keybind CTRL+Print.
 Item {
     id: root
@@ -97,10 +98,94 @@ Item {
         flow: root.vertical ? Flow.TopToBottom : Flow.LeftToRight
         spacing: root.isMaterial ? 2 : 4
 
-        Loader {
-            active: root.available
-            visible: active
-            sourceComponent: root.isMaterial ? conservationM3 : legacyConservation
+        // Tombol 1: toggle conservation mode.
+        // Dibungkus Item supaya punya `containsMouse` buat hoverTarget StyledPopup.
+        // Hover dibaca lewat HoverHandler, bukan MouseArea pembungkus, biar hover
+        // milik tombol di dalamnya (UtilButton/RippleButton) tidak ketelan.
+        Item {
+            id: conservationButton
+            visible: root.available
+            implicitWidth: conservationLoader.implicitWidth
+            implicitHeight: conservationLoader.implicitHeight
+
+            property bool containsMouse: conservationHover.hovered
+
+            HoverHandler {
+                id: conservationHover
+                enabled: !Config.options.bar.tooltips.clickToShow
+            }
+
+            Loader {
+                id: conservationLoader
+                active: root.available
+                visible: active
+                sourceComponent: root.isMaterial ? conservationM3 : legacyConservation
+            }
+
+            // Popup status saat hover, gaya sama dengan popup baterai.
+            StyledPopup {
+                hoverTarget: conservationButton
+
+                ColumnLayout {
+                    spacing: 10
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 3
+                        spacing: 8
+
+                        MaterialShapeWrappedMaterialSymbol {
+                            shape: MaterialShape.Shape.Clover4Leaf
+                            text: root.iconName
+                            fill: root.conservationOn ? 1 : 0
+                            iconSize: Appearance.font.pixelSize.large
+                            implicitSize: 36
+                            color: root.conservationOn ? Appearance.colors.colPrimaryContainer
+                                                       : Appearance.colors.colSecondaryContainer
+                            colSymbol: root.conservationOn ? Appearance.colors.colPrimary
+                                                           : Appearance.colors.colOnSecondaryContainer
+                        }
+
+                        ColumnLayout {
+                            spacing: -3
+
+                            StyledText {
+                                text: "Conservation Mode"
+                                font {
+                                    weight: Font.Medium
+                                    pixelSize: Appearance.font.pixelSize.normal
+                                }
+                                color: Appearance.colors.colOnSurfaceVariant
+                            }
+
+                            StyledText {
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                color: Appearance.colors.colOnSurfaceVariant
+                                opacity: 0.6
+                                text: {
+                                    if (!root.writable)
+                                        return "Locked \u00b7 sysfs is not writable"
+                                    if (root.conservationOn)
+                                        return "Charging stops at ~60% \u00b7 click to turn off"
+                                    return "Charging up to 100% \u00b7 click to turn on"
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        StyledText {
+                            Layout.rightMargin: 8
+                            Layout.leftMargin: 8
+                            font.pixelSize: Appearance.font.pixelSize.huge
+                            font.weight: Font.Bold
+                            color: root.conservationOn ? Appearance.colors.colPrimary
+                                                       : Appearance.colors.colOnSurfaceVariant
+                            text: root.conservationOn ? "On" : "Off"
+                        }
+                    }
+                }
+            }
         }
 
         Component {
