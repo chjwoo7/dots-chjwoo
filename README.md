@@ -69,6 +69,35 @@ and [end4-pC](https://github.com/pctrade/end4-pC) — that is where the work is.
   On hardware without a `conservation_mode` attribute the button hides itself
   and the rest of the shell is unaffected.
 
+### Install
+
+```bash
+cd ~/.config/quickshell/
+git clone https://github.com/chjwoo7/dots-chjwoo.git
+cd dots-chjwoo
+./install.sh
+```
+
+On a clean illogical-impulse install that is the whole thing. The script
+selects this config in Hyprland, adds the `ChjwooUtils` widget to the bar,
+installs the udev rule for battery conservation mode if the machine has it,
+and restarts the shell. Running it again changes nothing, and anything it
+replaces is copied to `~/dots-chjwoo-backup-<timestamp>/` first.
+
+| flag | what it adds |
+|---|---|
+| `--full` | also restores the rest of the rice from `dotfiles/` — kitty, fish, GTK, Hyprland, `~/.bashrc`. The "rebuild my own machine" switch: it overwrites live configuration, and some of what it writes is personal rather than portable ([details below](#installing-it)) |
+| `--no-restart` | leaves the running shell alone |
+
+Log out and back in when it finishes. Hyprland reads `qsConfig` at startup, so
+until then the new session variable is not set — the script starts the shell
+by hand to cover the gap.
+
+### Doing it by hand
+
+<details>
+<summary>The same four steps, if you would rather not run a script</summary>
+
 ### 1. Clone the shell
 
 ```bash
@@ -152,6 +181,8 @@ rule and `ChjwooUtils.qml` hardcode the device name `VPC2004:00`; if your
 machine enumerates it differently, the `ls` above tells you the real name and
 both files need that name instead.
 
+</details>
+
 ---
 
 ## 🗂️ The `dotfiles/` folder
@@ -179,12 +210,17 @@ Two files in there matter more than the rest:
 
 ### Installing it
 
-This step is optional — the shell runs without it, once steps 1-3 above are
-done. It is here for rebuilding this exact rice on a fresh machine, and it
-**overwrites** live configuration, so read what you are about to replace.
+Optional — the shell runs fine without it. This is for rebuilding this exact
+rice on a fresh machine, and it **overwrites** live configuration.
 
 ```bash
-cd ~/.config/quickshell/dots-chjwoo
+./install.sh --full
+```
+
+which is the plain install plus these copies, with a backup of everything it
+replaces:
+
+```bash
 cp -r dotfiles/config/. ~/.config/
 cp -r dotfiles/home/.   ~/       # .bashrc, .zshrc, .bash_profile, .gtkrc-2.0
 sudo install -m 644 dotfiles/system/60-ideapad-conservation.rules /etc/udev/rules.d/
