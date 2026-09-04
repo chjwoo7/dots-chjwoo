@@ -224,6 +224,10 @@ ContentPage {
                 }
             }
 
+            AccentColorOverrides {
+                Layout.topMargin: 20
+            }
+
             ContentSubsection {
                 visible: isMinimal
                 Layout.topMargin: 20

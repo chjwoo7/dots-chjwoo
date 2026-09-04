@@ -136,6 +136,27 @@ Singleton {
                 property JsonObject palette: JsonObject {
                     property string type: "auto" // Allowed: auto, scheme-content, scheme-expressive, scheme-fidelity, scheme-fruit-salad, scheme-monochrome, scheme-neutral, scheme-rainbow, scheme-tonal-spot
                     property string accentColor: ""
+                    // Hand-picked accent colours applied on top of the generated palette.
+                    // An empty string leaves the generated colour alone. Only accent roles
+                    // are listed: overriding surface or background would flip dark/light mode.
+                    // "...Text" is the Material "on<Role>" foreground colour. QML reads a
+                    // property named on<Uppercase> as a signal handler, so it cannot be
+                    // spelled the Material way here.
+                    property JsonObject overrides: JsonObject {
+                        property bool enable: false
+                        property string primary: ""
+                        property string primaryText: ""
+                        property string primaryContainer: ""
+                        property string primaryContainerText: ""
+                        property string secondary: ""
+                        property string secondaryText: ""
+                        property string secondaryContainer: ""
+                        property string secondaryContainerText: ""
+                        property string tertiary: ""
+                        property string tertiaryText: ""
+                        property string tertiaryContainer: ""
+                        property string tertiaryContainerText: ""
+                    }
                 }
             }
 

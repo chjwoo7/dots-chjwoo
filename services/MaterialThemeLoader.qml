@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import qs
 import qs.modules.common
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -30,6 +31,7 @@ Singleton {
             }
         }
         Appearance.m3colors.darkmode = (Appearance.m3colors.m3background.hslLightness < 0.5)
+        PaletteOverrides.setSource(json) // Layer hand-picked accent colours on top
     }
 
     function resetFilePathNextTime() {
