@@ -104,14 +104,12 @@ AbstractBackgroundWidget {
                 }
             }
 
-            StyledImage {
+            StyledAutoImage {
                 anchors.fill: parent
                 source: root.imagePath !== "" ? root.imagePath : ""
                 fillMode: Image.PreserveAspectCrop
                 cache: false
                 antialiasing: true
-                sourceSize.width: parent.width
-                sourceSize.height: parent.height
                 visible: root.imagePath !== ""
             }
 
