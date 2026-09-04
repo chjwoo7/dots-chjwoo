@@ -140,11 +140,9 @@ ContentSubsection {
         Layout.leftMargin: 8
         Layout.rightMargin: 8
         spacing: 4
-        opacity: Config.options.appearance.palette.overrides.enable ? 1 : 0.4
-
-        Behavior on opacity {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-        }
+        // Nothing here is usable while overriding is off, so it goes away
+        // entirely rather than sitting there dimmed.
+        visible: Config.options.appearance.palette.overrides.enable
 
         RowLayout {
             spacing: root.columnSpacing
