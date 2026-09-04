@@ -16,9 +16,10 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAME="$(basename "$REPO")"
-QS_DIR="$HOME/.config/quickshell"
-II_CONFIG="$HOME/.config/illogical-impulse/config.json"
-HYPR_CUSTOM="$HOME/.config/hypr/custom"
+XDG_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
+QS_DIR="$XDG_CONFIG/quickshell"
+II_CONFIG="$XDG_CONFIG/illogical-impulse/config.json"
+HYPR_CUSTOM="$XDG_CONFIG/hypr/custom"
 BACKUP="$HOME/dots-chjwoo-backup-$(date +%Y%m%d-%H%M%S)"
 RULE="$REPO/dotfiles/system/60-ideapad-conservation.rules"
 
@@ -28,7 +29,8 @@ for arg in "$@"; do
     case "$arg" in
         --full)       FULL=1 ;;
         --no-restart) RESTART=0 ;;
-        -h|--help)    sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 0 ;;
+        -h|--help)    awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' \
+                          "${BASH_SOURCE[0]}"; exit 0 ;;
         *)            echo "unknown option: $arg (try --help)" >&2; exit 2 ;;
     esac
 done
@@ -43,6 +45,7 @@ die()  { printf '\n\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 backup() {
     [ -e "$1" ] || return 0
     local rel="${1#"$HOME"/}"
+    rel="${rel#/}"
     mkdir -p "$BACKUP/$(dirname "$rel")"
     cp -a "$1" "$BACKUP/$(dirname "$rel")/"
 }
@@ -82,9 +85,9 @@ if [ ! -f "$vars" ]; then
         '' \
         "$line" > "$vars"
     ok "created $vars"
-elif grep -q "hl\.env(\"qsConfig\", \"$NAME\")" "$vars"; then
+elif grep -qE "^[[:space:]]*hl\.env\(\"qsConfig\",[[:space:]]*\"$NAME\"\)" "$vars"; then
     same "$vars already selects $NAME"
-elif grep -q 'hl\.env("qsConfig"' "$vars"; then
+elif grep -qE '^[[:space:]]*hl\.env\("qsConfig"' "$vars"; then
     backup "$vars"
     sed -i -E "s|^([[:space:]]*)hl\.env\(\"qsConfig\".*|\1$line|" "$vars"
     ok "repointed $vars to $NAME"
@@ -103,7 +106,10 @@ filter='.bar.layouts.rightLayout = ((.bar.layouts.rightLayout // ["sysTray","uti
 
 if [ ! -f "$II_CONFIG" ]; then
     mkdir -p "$(dirname "$II_CONFIG")"
-    echo '{}' | jq "$filter" > "$II_CONFIG"
+    tmp="$(mktemp)"
+    echo '{}' | jq "$filter" > "$tmp"
+    cat "$tmp" > "$II_CONFIG"   # not mv: mktemp is 0600, the config should not be
+    rm -f "$tmp"
     ok "created $II_CONFIG with the widget in the bar layout"
 elif ! jq -e . "$II_CONFIG" >/dev/null 2>&1; then
     die "could not parse $II_CONFIG as JSON"
@@ -130,28 +136,40 @@ elif [ -w "$attr" ]; then
 else
     device="$(basename "$(dirname "$attr")")"
     id -nG | tr ' ' '\n' | grep -qx wheel || warn \
-        "you are not in the 'wheel' group; the rule grants access to it (usermod -aG wheel $USER, then log back in)"
+        "you are not in the 'wheel' group, which is the group the rule grants access to" \
+        "(sudo usermod -aG wheel $(id -un), then log back in)"
 
-    tmp_rule="$(mktemp)"
-    if [ "$device" != "VPC2004:00" ]; then
-        warn "device is $device, not VPC2004:00 — adjusting the rule to match"
-        sed "s/VPC2004:00/$device/g" "$RULE" > "$tmp_rule"
-        warn "ChjwooUtils.qml hardcodes the same name; edit conservationPath there too"
+    if [ ! -f "$RULE" ]; then
+        warn "$RULE is missing — skipping. The toggle will show a padlock."
     else
-        cat "$RULE" > "$tmp_rule"
-    fi
+        tmp_rule="$(mktemp)"
+        trap 'rm -f "$tmp_rule"' EXIT
+        if [ "$device" != "VPC2004:00" ]; then
+            warn "device is $device, not VPC2004:00 — adjusting the rule to match"
+            warn "ChjwooUtils.qml hardcodes the same name; edit conservationPath there too"
+            sed "s/VPC2004:00/$device/g" "$RULE" > "$tmp_rule"
+        else
+            cat "$RULE" > "$tmp_rule"
+        fi
 
-    echo "  installing the udev rule needs root:"
-    sudo install -m 644 "$tmp_rule" /etc/udev/rules.d/60-ideapad-conservation.rules
-    rm -f "$tmp_rule"
-    sudo udevadm control --reload
-    sudo udevadm trigger -c bind -s platform
-
-    if [ -w "$attr" ]; then
-        ok "$attr is writable now"
-    else
-        warn "still not writable. If you were just added to 'wheel', log out and back in."
-        warn "until then the button shows a padlock instead of a toggle."
+        # Root is only needed here. If it is refused, the rest of the install is
+        # still valid, so warn instead of aborting.
+        echo "  installing the udev rule needs root:"
+        if sudo install -m 644 "$tmp_rule" /etc/udev/rules.d/60-ideapad-conservation.rules &&
+           sudo udevadm control --reload &&
+           sudo udevadm trigger -c bind -s platform; then
+            sudo udevadm settle --timeout=10 || true
+            if [ -w "$attr" ]; then
+                ok "$attr is writable now"
+            else
+                warn "still not writable. If you were just added to 'wheel', log out and back in."
+                warn "until then the button shows a padlock instead of a toggle."
+            fi
+        else
+            warn "could not install or apply the rule as root — skipped. The toggle will show a padlock."
+        fi
+        rm -f "$tmp_rule"
+        trap - EXIT
     fi
 fi
 
@@ -159,19 +177,27 @@ if [ "$FULL" = 1 ]; then
     step "4. Restoring the rest of the rice from dotfiles/"
     warn "this overwrites live configuration; a copy goes to $BACKUP/"
 
-    for src in "$REPO"/dotfiles/config/*; do
-        [ -e "$src" ] || continue
-        backup "$HOME/.config/$(basename "$src")"
-    done
-    cp -r "$REPO"/dotfiles/config/. "$HOME/.config/"
-    ok "copied dotfiles/config into ~/.config"
+    if [ -d "$REPO/dotfiles/config" ]; then
+        for src in "$REPO"/dotfiles/config/*; do
+            [ -e "$src" ] || continue
+            backup "$XDG_CONFIG/$(basename "$src")"
+        done
+        cp -r "$REPO"/dotfiles/config/. "$XDG_CONFIG/"
+        ok "copied dotfiles/config into $XDG_CONFIG"
+    else
+        warn "dotfiles/config is missing — nothing to copy"
+    fi
 
-    for src in "$REPO"/dotfiles/home/.[!.]*; do
-        [ -f "$src" ] || continue
-        backup "$HOME/$(basename "$src")"
-    done
-    cp -r "$REPO"/dotfiles/home/. "$HOME/"
-    ok "copied dotfiles/home into ~"
+    if [ -d "$REPO/dotfiles/home" ]; then
+        for src in "$REPO"/dotfiles/home/.[!.]*; do
+            [ -f "$src" ] || continue
+            backup "$HOME/$(basename "$src")"
+        done
+        cp -r "$REPO"/dotfiles/home/. "$HOME/"
+        ok "copied dotfiles/home into ~"
+    else
+        warn "dotfiles/home is missing — nothing to copy"
+    fi
 
     warn "some of those files are personal, not portable — see the README:"
     warn "wallpaper, lock screen and recording paths point at /home/chjwoo"
