@@ -27,22 +27,53 @@ IFS=$'\n'
 colorlist=($colornames)     # Array of color names
 colorvalues=($colorstrings) # Array of color values
 
+# One sed program for every colour, instead of one whole-file rewrite each.
+# The " #" the patterns end on is what keeps $term1 from matching $term10.
+build_color_sed_script() {
+  local script=""
+  for i in "${!colorlist[@]}"; do
+    script+="s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g;"
+  done
+  printf '%s' "$script"
+}
+
+# Render a template into place without the result ever being observable
+# half-finished. Substituting into the live file left it holding raw
+# placeholders for the length of the run, so a second colour change reloading
+# a terminal at the wrong moment handed it a file full of "$term0 #". Writing
+# to a temporary and renaming is atomic: a reader gets the old file or the new
+# one, never something in between.
+render_template() {
+  local template="$1" target="$2" extra_sed="${3:-}"
+  local tmp script
+  tmp=$(mktemp "$target.XXXXXX") || return 1
+  # Built as one string rather than conditional -e arguments: IFS is a newline
+  # here, so an unquoted expansion holding a space would not split the way it
+  # reads like it should.
+  script="$(build_color_sed_script)"
+  [ -n "$extra_sed" ] && script="$script$extra_sed;"
+  if ! sed -e "$script" "$template" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  chmod 0644 "$tmp"        # mktemp makes it 0600; keep what cp used to leave
+  mv -f "$tmp" "$target" || { rm -f "$tmp"; return 1; }
+}
+
 apply_kitty() {  
   # Check if terminal escape sequence template exists
   if [ ! -f "$SCRIPT_DIR/terminal/kitty-theme.conf" ]; then
     echo "Template file not found for Kitty theme. Skipping that."
     return
   fi
-  # Copy template
   mkdir -p "$STATE_DIR"/user/generated/terminal
-  cp "$SCRIPT_DIR/terminal/kitty-theme.conf" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
-  # Apply colors
-  for i in "${!colorlist[@]}"; do
-    sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
-  done
+  render_template "$SCRIPT_DIR/terminal/kitty-theme.conf" \
+                  "$STATE_DIR/user/generated/terminal/kitty-theme.conf" || return
 
-  # Reload
-  kill -SIGUSR1 $(pidof kitty)
+  # Reload. pidof separates pids with spaces, but IFS is a newline here for the
+  # colour arrays, so word splitting cannot be relied on -- and with no kitty
+  # running the old form called kill with no arguments at all.
+  pidof kitty 2>/dev/null | xargs -r kill -SIGUSR1 2>/dev/null
 }
 
 apply_anyterm() {
@@ -51,15 +82,13 @@ apply_anyterm() {
     echo "Template file not found for Terminal. Skipping that."
     return
   fi
-  # Copy template
   mkdir -p "$STATE_DIR"/user/generated/terminal
-  cp "$SCRIPT_DIR/terminal/sequences.txt" "$STATE_DIR"/user/generated/terminal/sequences.txt
-  # Apply colors
-  for i in "${!colorlist[@]}"; do
-    sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/sequences.txt
-  done
-
-  sed -i "s/\$alpha/$term_alpha/g" "$STATE_DIR/user/generated/terminal/sequences.txt"
+  # Same atomic rename as the kitty theme, and it matters more here: this file
+  # is written straight into every pty, so a half-substituted one would spray
+  # literal "$term0 #" into the user's terminals.
+  render_template "$SCRIPT_DIR/terminal/sequences.txt" \
+                  "$STATE_DIR/user/generated/terminal/sequences.txt" \
+                  "s/\$alpha/$term_alpha/g" || return
 
   for file in /dev/pts/*; do
     if [[ $file =~ ^/dev/pts/[0-9]+$ ]]; then
