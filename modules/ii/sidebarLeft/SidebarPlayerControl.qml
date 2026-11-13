@@ -15,9 +15,24 @@ import Quickshell.Services.Mpris
 
 Item {
     id: root
-    property var player: Mpris.players.values[playerSelector.currentIndex] ?? Mpris.players.values[0]
+    // Show all available MPRIS players.
+    property var availablePlayers: Mpris.players.values
+
+    // Optional: Hide Chromium's built-in MPRIS instances
+    // if they appear as duplicate players.
+    // To enable this filter, comment out the property above
+    // and uncomment the block below.
+
+    // property var availablePlayers: Mpris.players.values.filter(p => {
+    //     const service = (p.dbusName ?? "").toLowerCase()
+    //     return !service.includes("org.mpris.mediaplayer2.chromium.instance")
+    // })
+
+    // Currently selected player
+    property var player: availablePlayers[root.currentPlayerIndex] ?? availablePlayers[0]
     property var artUrl: player?.trackArtUrl ?? ""
     property string artDownloadLocation: Directories.coverArt
+    property bool showLyrics: Config.options.sidebar.media.showLyrics ?? true
     property string artFileName: Qt.md5(artUrl)
     property string artFilePath: `${artDownloadLocation}/${artFileName}`
     property color artDominantColor: Config.options.sidebar.media.artColors
@@ -27,13 +42,24 @@ Item {
             0.8
           )
         : Appearance.colors.colPrimaryContainer
-    property bool downloaded: false
+    property bool downloaded: Boolean(root.artUrl && (root.artUrl.startsWith("data:") || root.artUrl.startsWith("file:/") || root.artUrl.startsWith("/")))
     property list<real> visualizerPoints: []
     property real maxVisualizerValue: 1000
     property int visualizerSmoothing: 2
     property real radius
+    property int currentPlayerIndex: 0
+    property bool blurredBackground: Config.options.sidebar.media.blurredBackground ?? false
+    property bool shapeArt: Config.options.sidebar.media.shapeArt ?? false
+    readonly property var artShapeOptions: ["Circle", "Square", "Pill", "Bun", "Cookie12Sided", "Clover4Leaf", "Heart", "Slanted", "Arch", "Arrow", "SemiCircle", "Oval", "Triangle", "Diamond", "ClamShell", "Pentagon", "Gem", "Sunny", "VerySunny", "Cookie4Sided", "Cookie6Sided", "Cookie7Sided", "Cookie9Sided", "Ghostish", "Clover8Leaf", "Burst", "SoftBurst", "Boom", "SoftBoom", "Flower", "Puffy", "PuffyDiamond"]
 
-    property string displayedArtFilePath: root.downloaded ? Qt.resolvedUrl(artFilePath) : ""
+    property string displayedArtFilePath: {
+        if (!root.artUrl || root.artUrl.length === 0) return ""
+        if (root.artUrl.startsWith("data:")) return root.artUrl
+        if (root.artUrl.startsWith("file:/")) return root.artUrl
+        if (root.artUrl.startsWith("/")) return "file://" + root.artUrl
+        if (!root.downloaded) return ""
+        return Qt.resolvedUrl(artFilePath)
+    }
 
     Timer {
         running: root.player?.playbackState == MprisPlaybackState.Playing
@@ -45,12 +71,21 @@ Item {
     onArtFilePathChanged: {
         if (!root.artUrl || root.artUrl.length == 0) {
             root.artDominantColor = Appearance.m3colors.m3secondaryContainer
+            root.downloaded = false
             return
         }
-        coverArtDownloader.targetFile = root.artUrl
-        coverArtDownloader.artFilePath = root.artFilePath
-        root.downloaded = false
-        coverArtDownloader.running = true
+        if (root.artUrl.startsWith("data:") || root.artUrl.startsWith("file:/") || root.artUrl.startsWith("/")) {
+            root.downloaded = true
+            return
+        }
+        if (root.artUrl.startsWith("http://") || root.artUrl.startsWith("https://")) {
+            coverArtDownloader.targetFile = root.artUrl
+            coverArtDownloader.artFilePath = root.artFilePath
+            root.downloaded = false
+            coverArtDownloader.running = true
+        } else {
+            root.downloaded = true
+        }
     }
 
     Process {
@@ -79,8 +114,44 @@ Item {
         anchors.rightMargin: 4
         anchors.topMargin: -1
         anchors.bottomMargin: 4
-        color: ColorUtils.transparentize(artDominantColor, 0.9)
+        color: Config.options.background.widgets.glass.enable ? "transparent" : ColorUtils.transparentize(artDominantColor, 0.9)
         radius: Appearance.rounding.normal
+        clip: true
+
+        WindowGlass {
+            anchors.fill: parent
+            cardRadius: parent.radius
+            tint: root.artDominantColor
+            tintStrength: 0
+        }
+
+        Image {
+            id: blurArtSource
+            anchors.fill: parent
+            source: root.displayedArtFilePath
+            fillMode: Image.PreserveAspectCrop
+            cache: false
+            asynchronous: true
+            visible: false
+        }
+
+        FastBlur {
+            id: blurArt
+            anchors.fill: parent
+            source: blurArtSource
+            radius: 80
+            opacity: 0.5
+            visible: root.blurredBackground && root.displayedArtFilePath !== ""
+
+            layer.enabled: blurArt.visible
+            layer.effect: OpacityMask {
+                maskSource: Rectangle {
+                    width: blurArt.width
+                    height: blurArt.height
+                    radius: background.radius
+                }
+            }
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -88,31 +159,67 @@ Item {
             spacing: 0
 
             // ── Album art ──
-            Rectangle {
+            Item {
                 id: artBackground
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: Math.min(parent.width * 1, parent.height * 0.45)
                 Layout.preferredHeight: Layout.preferredWidth
-                radius: Appearance.rounding.normal
-                color: Appearance.colors.colPrimaryContainer
 
-                layer.enabled: true
-                layer.effect: OpacityMask {
-                    maskSource: Rectangle {
-                        width: artBackground.width
-                        height: artBackground.height
-                        radius: artBackground.radius
+                property bool useShape: root.shapeArt && (Config.options.sidebar.media.artShape ?? "Rectangle") !== "Rectangle"
+                property int materialShape: ShapeUtils.getShape(Config.options.sidebar.media.artShape)
+
+                Rectangle {
+                    id: artRect
+                    anchors.fill: parent
+                    visible: !artBackground.useShape
+                    radius: Appearance.rounding.normal
+                    color: Appearance.colors.colPrimaryContainer
+
+                    layer.enabled: !artBackground.useShape
+                    layer.effect: OpacityMask {
+                        maskSource: Rectangle {
+                            width: artRect.width
+                            height: artRect.height
+                            radius: artRect.radius
+                        }
+                    }
+
+                    StyledImage {
+                        anchors.fill: parent
+                        source: root.displayedArtFilePath
+                        fillMode: Image.PreserveAspectCrop
+                        cache: false
+                        antialiasing: true
+                        sourceSize.width: artBackground.width * 2
+                        sourceSize.height: artBackground.height * 2
                     }
                 }
 
-                StyledImage {
+                MaterialShape {
+                    id: artShapeItem
                     anchors.fill: parent
-                    source: root.displayedArtFilePath
-                    fillMode: Image.PreserveAspectCrop
-                    cache: false
-                    antialiasing: true
-                    sourceSize.width: artBackground.width * 2
-                    sourceSize.height: artBackground.height * 2
+                    visible: artBackground.useShape
+                    shape: artBackground.materialShape
+                    color: Appearance.colors.colPrimaryContainer
+
+                    layer.enabled: artBackground.useShape
+                    layer.effect: OpacityMask {
+                        maskSource: MaterialShape {
+                            width: artShapeItem.width
+                            height: artShapeItem.height
+                            shape: artBackground.materialShape
+                        }
+                    }
+
+                    StyledImage {
+                        anchors.fill: parent
+                        source: root.displayedArtFilePath
+                        fillMode: Image.PreserveAspectCrop
+                        cache: false
+                        antialiasing: true
+                        sourceSize.width: artBackground.width * 2
+                        sourceSize.height: artBackground.height * 2
+                    }
                 }
 
                 MaterialSymbol {
@@ -186,23 +293,44 @@ Item {
             }
 
             // ── Lyrics ──
-            Lyrics {
-                id: lyricsComp
-                opacity: MprisController.activePlayer !== null ? 1 : 0 
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                textAlignment: Text.AlignHCenter
-                textColor: blendedColors.colOnLayer0
-                activeColor: blendedColors.colPrimary
-                dimColor: blendedColors.colSubtext
-                indicatorColor: {
-                    let c = blendedColors.colPrimaryContainer
-                    return (c && c != "#000000" && c != "transparent") ? c : root.artDominantColor
+
+                Lyrics {
+                    id: lyricsComp
+                    anchors.fill: parent
+                    opacity: (MprisController.activePlayer !== null && Config.options.sidebar.media.showLyrics) ? 1 : 0
+                    textAlignment: Text.AlignHCenter
+                    textColor: blendedColors.colOnLayer0
+                    activeColor: blendedColors.colPrimary
+                    dimColor: blendedColors.colSubtext
+                    indicatorColor: {
+                        let c = blendedColors.colPrimaryContainer
+                        return (c && c != "#000000" && c != "transparent") ? c : root.artDominantColor
+                    }
+                    indicatorShapeColor: {
+                        let c = blendedColors.colOnPrimaryContainer
+                        if (c && c != "#000000" && c != "#ffffff" && c != "transparent") return c
+                        return blendedColors.colPrimary || Appearance.colors.colPrimary
+                    }
+                    Behavior on opacity { NumberAnimation { duration: 200 } }
                 }
-                indicatorShapeColor: {
-                    let c = blendedColors.colOnPrimaryContainer
-                    if (c && c != "#000000" && c != "#ffffff" && c != "transparent") return c
-                    return blendedColors.colPrimary || Appearance.colors.colPrimary
+
+                Loader {
+                    anchors.fill: parent
+                    active: !Config.options.sidebar.media.showLyrics
+                    opacity: active ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 200 } }
+
+                    sourceComponent: Visualizer {
+                        vertical: false
+                        mirrored: false
+                        barCount: 32
+                        dotSize: 5
+                        dotSpacing: 6
+                        maxBarHeight: parent.height * 0.8
+                    }
                 }
             }
 
@@ -214,7 +342,27 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 24
+                    spacing: 12
+                    RippleButton {
+                        property real baseSize: Math.max(60, parent.parent.height * 0.06)
+                        implicitWidth: baseSize
+                        implicitHeight: baseSize 
+                        buttonRadius: Appearance.rounding.verylarge
+                        colBackground: "transparent"
+                        colBackgroundHover: "transparent"
+                        colRipple: "transparent"
+                        padding: -10
+                        downAction: () => root.player?.previous()
+                        contentItem: MaterialShapeWrappedMaterialSymbol {
+                            wrappedShape: MaterialShape.Shape.Cookie12Sided
+                            padding: 0
+                            iconSize: 32
+                            fill: 1
+                            text: "skip_previous"
+                            color: ColorUtils.transparentize(blendedColors.colSecondaryContainer, 0.7)
+                            colSymbol: blendedColors.colOnSecondaryContainer
+                        }
+                    }
 
                     RippleButton {
                         property real baseSize: Math.max(70, parent.parent.height * 0.1)
@@ -263,27 +411,6 @@ Item {
                     Layout.fillWidth: true
                     spacing: 24
 
-                    RippleButton {
-                        property real baseSize: Math.max(60, parent.parent.height * 0.06)
-                        implicitWidth: baseSize
-                        implicitHeight: baseSize 
-                        buttonRadius: Appearance.rounding.verylarge
-                        colBackground: "transparent"
-                        colBackgroundHover: "transparent"
-                        colRipple: "transparent"
-                        padding: -10
-                        downAction: () => root.player?.previous()
-                        contentItem: MaterialShapeWrappedMaterialSymbol {
-                            wrappedShape: MaterialShape.Shape.Cookie12Sided
-                            padding: 0
-                            iconSize: 32
-                            fill: 1
-                            text: "skip_previous"
-                            color: ColorUtils.transparentize(blendedColors.colSecondaryContainer, 0.7)
-                            colSymbol: blendedColors.colOnSecondaryContainer
-                        }
-                    }
-
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
@@ -294,16 +421,17 @@ Item {
 
                             Loader {
                                 id: sliderLoader
+                                property var player: root.player
                                 anchors.fill: parent
-                                active: root.player?.canSeek ?? false
+                                active: sliderLoader.player?.canSeek ?? false
                                 sourceComponent: StyledSlider {
                                     configuration: StyledSlider.Configuration.Wavy
                                     highlightColor: blendedColors.colPrimary
                                     trackColor: blendedColors.colSecondaryContainer
                                     handleColor: blendedColors.colPrimary
-                                    value: (root.player?.position ?? 0) / (root.player?.length ?? 1)
+                                    value: (sliderLoader.player?.position ?? 0) / (sliderLoader.player?.length ?? 1)
                                     onMoved: {
-                                        root.player.position = value * root.player.length
+                                        sliderLoader.player.position = value * sliderLoader.player.length
                                         lyricsComp.restartLyrics()
                                     }
                                 }
@@ -311,17 +439,18 @@ Item {
 
                             Loader {
                                 id: progressBarLoader
+                                property var player: root.player
                                 anchors {
                                     verticalCenter: parent.verticalCenter
                                     left: parent.left
                                     right: parent.right
                                 }
-                                active: !(root.player?.canSeek ?? false)
+                                active: !(progressBarLoader.player?.canSeek ?? false)
                                 sourceComponent: StyledProgressBar {
-                                    wavy: root.player?.isPlaying ?? false
+                                    wavy: progressBarLoader.player?.isPlaying ?? false
                                     highlightColor: blendedColors.colPrimary
                                     trackColor: blendedColors.colSecondaryContainer
-                                    value: (root.player?.position ?? 0) / (root.player?.length ?? 1)
+                                    value: (progressBarLoader.player?.position ?? 0) / (progressBarLoader.player?.length ?? 1)
                                 }
                             }
                         }
@@ -351,11 +480,31 @@ Item {
                 }
             }
 
-            // ── Volume ──
+            // ── Lyrics toggle Volume & settings  ──
             RowLayout {
                 Layout.fillWidth: true
                 Layout.topMargin: 20
                 spacing: 8
+
+                RippleButton {
+                    property real baseSize: Math.max(36, parent.parent.height * 0.05)
+                    implicitWidth: baseSize
+                    implicitHeight: baseSize
+                    buttonRadius: Appearance.rounding.large
+                    colBackground: ColorUtils.transparentize(blendedColors.colSecondaryContainer, 0.7)
+                    colBackgroundHover: blendedColors.colSecondaryContainerHover
+                    colRipple: blendedColors.colSecondaryContainerActive
+                    downAction: () => {
+                        Config.options.sidebar.media.showLyrics = !Config.options.sidebar.media.showLyrics
+                    }
+                    contentItem: MaterialSymbol {
+                        iconSize: 18
+                        fill: Config.options.sidebar.media.showLyrics ? 1 : 0
+                        horizontalAlignment: Text.AlignHCenter
+                        color: blendedColors.colOnSecondaryContainer
+                        text: "lyrics"
+                    }
+                }
 
                 RippleButton {
                     property real baseSize: Math.max(36, parent.parent.height * 0.05)
@@ -379,43 +528,135 @@ Item {
                     }
                 }
 
-                RippleButton {
-                    property real baseSize: Math.max(36, parent.parent.height * 0.05)
-                    Layout.fillWidth: true
-                    implicitHeight: baseSize
-                    buttonRadius: Appearance.rounding.large
-                    colBackground: ColorUtils.transparentize(blendedColors.colSecondaryContainer, 0.7)
-                    colBackgroundHover: blendedColors.colSecondaryContainerHover
-                    colRipple: blendedColors.colSecondaryContainerActive
-                    downAction: () => {
-                        if (root.player) root.player.volume = Math.max(0, (root.player.volume ?? 1) - 0.1)  
-                    }
-                    contentItem: MaterialSymbol {
-                        iconSize: 18
-                        fill: 1
-                        horizontalAlignment: Text.AlignHCenter
-                        color: blendedColors.colOnSecondaryContainer
-                        text: "volume_down"
-                    }
-                }
+                   // Volume slider
+                   StyledSlider {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
 
-                RippleButton {
+                        configuration: StyledSlider.Configuration.Wavy
+
+                        highlightColor: blendedColors.colPrimary
+                        trackColor: blendedColors.colSecondaryContainer
+                        handleColor: blendedColors.colPrimary
+
+                        value: root.player?.volume ?? 1
+
+                        onMoved: {
+                            if (root.player)
+                            root.player.volume = value
+                        }
+                    }
+
+               RippleButton {
+                    id: moreButton
                     property real baseSize: Math.max(36, parent.parent.height * 0.05)
-                    Layout.fillWidth: true
+                    implicitWidth: baseSize
                     implicitHeight: baseSize
                     buttonRadius: Appearance.rounding.large
                     colBackground: ColorUtils.transparentize(blendedColors.colSecondaryContainer, 0.7)
                     colBackgroundHover: blendedColors.colSecondaryContainerHover
                     colRipple: blendedColors.colSecondaryContainerActive
-                    downAction: () => {
-                        if (root.player) root.player.volume = Math.min(1.5, (root.player.volume ?? 1) + 0.1)  
-                    }
+                    downAction: () => menuPopup.open()
                     contentItem: MaterialSymbol {
                         iconSize: 18
                         fill: 1
                         horizontalAlignment: Text.AlignHCenter
                         color: blendedColors.colOnSecondaryContainer
-                        text: "volume_up"
+                        text: "more_vert"
+                    }
+
+                    Popup {
+                        id: menuPopup
+                        y: -implicitHeight - 8
+                        x: moreButton.width - implicitWidth
+                        width: 210
+                        padding: 16
+                        modal: true
+                        dim: false
+                        closePolicy: Popup.CloseOnPressOutside | Popup.CloseOnEscape
+                        transformOrigin: Popup.BottomRight
+
+                        enter: Transition {
+                            ParallelAnimation {
+                                NumberAnimation {
+                                    property: "scale"
+                                    from: 0.6
+                                    to: 1
+                                    duration: 500
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.expressiveFastSpatial
+                                }
+                                NumberAnimation {
+                                    property: "opacity"
+                                    from: 0
+                                    to: 1
+                                    duration: Appearance.animationCurves.expressiveEffectsDuration
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.expressiveEffects
+                                }
+                            }
+                        }
+                        exit: Transition {
+                            ParallelAnimation {
+                                NumberAnimation {
+                                    property: "scale"
+                                    to: 0.6
+                                    duration: 220
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.emphasizedAccel
+                                }
+                                NumberAnimation {
+                                    property: "opacity"
+                                    to: 0
+                                    duration: 120
+                                    easing.type: Easing.BezierSpline
+                                    easing.bezierCurve: Appearance.animationCurves.emphasizedAccel
+                                }
+                            }
+                        }
+
+                        background: Rectangle {
+                            color: Appearance.m3colors.m3surfaceContainer
+                            radius: Appearance.rounding.verylarge
+                            border.width: 2
+                            border.color: Appearance.colors.colLayer0Border
+                        }
+
+                        contentItem: ColumnLayout {
+                            width: menuPopup.width
+                            spacing: 10
+
+                            ConfigSwitch {
+                                buttonIcon: "shape_line"
+                                text: Translation.tr("Shape Art")
+                                checked: Config.options.sidebar.media.shapeArt
+                                onCheckedChanged: { Config.options.sidebar.media.shapeArt = checked }
+                            }
+
+                            ConfigSelectionShapeArray {
+                                Layout.fillWidth: true
+                                visible: Config.options.sidebar.media.shapeArt
+                                currentValue: Config.options.sidebar.media.artShape
+                                shapeColor: Appearance.colors.colPrimary
+                                backgroundColor: Appearance.colors.colPrimaryContainer
+                                options: root.artShapeOptions
+                                onSelected: newValue => Config.options.sidebar.media.artShape = newValue
+                            }
+
+                            ConfigSwitch {
+                                buttonIcon: "radio_button_partial"
+                                text: Translation.tr("Art Colors")
+                                checked: Config.options.sidebar.media.artColors
+                                onCheckedChanged: { Config.options.sidebar.media.artColors = checked }
+                            }
+
+                            ConfigSwitch {
+                                buttonIcon: "blur_on"
+                                text: Translation.tr("Blurred Art")
+                                checked: Config.options.sidebar.media.blurredBackground
+                                onCheckedChanged: { Config.options.sidebar.media.blurredBackground = checked }
+                            }
+                        }
                     }
                 }
             }
@@ -426,8 +667,14 @@ Item {
                 visible: Mpris.players.values.length > 1
                 Layout.fillWidth: true
                 Layout.topMargin: 12
-                model: Mpris.players.values.map(p => p.identity ?? p.desktopEntry ?? "Unknown")
-                currentIndex: 0
+                model: root.availablePlayers.map(p =>
+                     p.identity ?? p.desktopEntry ?? "Unknown"
+                )
+               currentIndex: root.currentPlayerIndex
+
+    onActivated: index => {
+        root.currentPlayerIndex = index
+                }
             }
         }
     }

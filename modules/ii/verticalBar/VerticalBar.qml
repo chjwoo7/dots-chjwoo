@@ -49,13 +49,19 @@ Scope {
                 }
                 property bool superShow: false
                 property bool mustShow: hoverRegion.containsMouse || superShow
+                    || (Config.options.bar.autoHide.enable && GlobalStates.isFrameHovered(barRoot.screen?.name, Config.options.bar.bottom ? "right" : "left"))
                 exclusionMode: ExclusionMode.Ignore
-                exclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows)) ? 0 :
-                    Appearance.sizes.baseVerticalBarWidth + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
-                    + (Config.options.bar.cornerStyle === 3 ? (Config.options.hyprland.general.gapsOut || 5) : 0)
+                property int normalExclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows))
+                    ? 0
+                    : Appearance.sizes.baseVerticalBarWidth
+                        + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
+                        + (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
+
+                exclusiveZone: (barContent.centerOnly && Config.options.bar.centerOnlyReserveFrame)
+                    ? Config.options.bar.frameThickness
+                    : normalExclusiveZone
                 WlrLayershell.namespace: "quickshell:verticalBar"
                 implicitWidth: Appearance.sizes.verticalBarWidth + Appearance.rounding.screenRounding
-                    + (Config.options.bar.cornerStyle === 3 ? (Config.options.hyprland.general.gapsOut || 5) : 0)
                 mask: Region { item: hoverMaskRegion }
                 color: "transparent"
 
@@ -74,6 +80,19 @@ Scope {
                     hoverEnabled: true
                     anchors.fill: parent
 
+                    Binding {
+                        target: GlassLayers
+                        property: "barZone"
+                        value: Math.max(0, barRoot.exclusiveZone)
+                        restoreMode: Binding.RestoreBinding
+                    }
+                    Binding {
+                        target: GlassLayers
+                        property: "barEdge"
+                        value: Config.options.bar.bottom ? "right" : "left"
+                        restoreMode: Binding.RestoreBinding
+                    }
+
                     Item {
                         id: hoverMaskRegion
                         anchors {
@@ -85,12 +104,13 @@ Scope {
 
                     RoundCorner {
                         id: topPillCorner
-                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0
+                        glass: true
+                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.glassHug
                         y: barContent.centerPillY - implicitSize
                         implicitSize: Appearance.rounding.screenRounding
                         color: Config.options.bar.followFrameColor
                             ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                            : Appearance.colors.colLayer0
+                            : Appearance.colors.colUiBackground
                         corner: RoundCorner.CornerEnum.BottomLeft
 
                         states: State {
@@ -115,12 +135,13 @@ Scope {
 
                     RoundCorner {
                         id: bottomPillCorner
-                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0
+                        glass: true
+                        visible: barContent.centerOnly && showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.glassHug
                         y: barContent.centerPillY + barContent.centerPillHeight
                         implicitSize: Appearance.rounding.screenRounding
                         color: Config.options.bar.followFrameColor
                             ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                            : Appearance.colors.colLayer0
+                            : Appearance.colors.colUiBackground
                         corner: RoundCorner.CornerEnum.TopLeft
 
                         states: State {
@@ -145,7 +166,7 @@ Scope {
 
                     VerticalBarContent {
                         id: barContent
-                        
+
                         implicitWidth: Appearance.sizes.verticalBarWidth
                         anchors {
                             top: parent.top
@@ -154,7 +175,7 @@ Scope {
                             right: undefined
                             leftMargin: (Config?.options.bar.autoHide.enable && !mustShow) 
                                 ? -Appearance.sizes.verticalBarWidth 
-                                : (Config.options.bar.cornerStyle === 3 ? (Config.options.hyprland.general.gapsOut || 5) : 0)
+                                : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
                         }
                         Behavior on anchors.leftMargin {
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
@@ -178,7 +199,9 @@ Scope {
                             PropertyChanges {
                                 target: barContent
                                 anchors.topMargin: 0
-                                anchors.rightMargin: (Config?.options.bar.autoHide.enable && !mustShow) ? -Appearance.sizes.barHeight : 0
+                                anchors.rightMargin: (Config?.options.bar.autoHide.enable && !mustShow)
+                                    ? -Appearance.sizes.barHeight
+                                    : (Config.options.bar.cornerStyle === 3 ? (Appearance.sizes.hyprlandGapsOut || 5) : 0)
                             }
                         }
                     }
@@ -193,7 +216,8 @@ Scope {
                             right: undefined
                         }
                         width: Appearance.rounding.screenRounding
-                        active: showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly
+                        active: !barContent.glassTabs && !barContent.glassHug && ((showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly)
+                             || (Config.options.bar.cornerStyle === 4 || Config.options.bar.cornerStyle === 6))
 
                         states: State {
                             name: "right"
@@ -211,15 +235,22 @@ Scope {
 
                         sourceComponent: Item {
                             implicitHeight: Appearance.rounding.screenRounding
+
+                            readonly property color decoratorColor: (Config.options.bar.cornerStyle === 4 || Config.options.bar.cornerStyle === 6 || showBarBackground)
+                                ? (Config.options.bar.followFrameColor && Config.options.bar.frameColor
+                                    ? Appearance.getColorFromName(Config.options.bar.frameColor)
+                                    : Appearance.colors.colUiBackground)
+                                : "transparent"
+
                             RoundCorner {
                                 id: topCorner
+                                glass: true
+                                visible: Config.options.bar.cornerStyle === 0 || barContent.effectiveLeftLayout.length > 0
                                 anchors { left: parent.left; right: parent.right; top: parent.top }
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground
-                                    ? (Config.options.bar.followFrameColor && Config.options.bar.frameColor
-                                        ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                                        : Appearance.colors.colLayer0)
-                                    : "transparent"
+                                width: implicitSize
+                                height: implicitSize
+                                color: parent.decoratorColor
                                 corner: RoundCorner.CornerEnum.TopLeft
                                 states: State {
                                     name: "bottom"
@@ -229,17 +260,17 @@ Scope {
                             }
                             RoundCorner {
                                 id: bottomCorner
+                                glass: true
+                                visible: Config.options.bar.cornerStyle === 0 || barContent.effectiveRightLayout.length > 0
                                 anchors {
                                     bottom: parent.bottom
-                                    left: !Config.options.bar.bottom ? parent.left : undefined
-                                    right: Config.options.bar.bottom ? parent.right : undefined
+                                    left: parent.left
+                                    right: parent.right
                                 }
                                 implicitSize: Appearance.rounding.screenRounding
-                                color: showBarBackground
-                                    ? (Config.options.bar.followFrameColor && Config.options.bar.frameColor
-                                        ? Appearance.getColorFromName(Config.options.bar.frameColor)
-                                        : Appearance.colors.colLayer0)
-                                    : "transparent"
+                                width: implicitSize
+                                height: implicitSize
+                                color: parent.decoratorColor
                                 corner: RoundCorner.CornerEnum.BottomLeft
                                 states: State {
                                     name: "bottom"

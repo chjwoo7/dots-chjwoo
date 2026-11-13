@@ -13,6 +13,7 @@ Item {
 
     property string provider: "wallhaven"
     property string resolution: "1080p"
+    property string colorGroup: ""
     property int columns: Config.options.wallpaperSelector.columns || 4
     property real previewCellAspectRatio: 4 / 3
     property var hoveredItem: null
@@ -32,11 +33,13 @@ Item {
 
     onProviderChanged:   { root.hoveredItem = null; _syncAndFetch() }
     onResolutionChanged: _syncAndFetch()
+    onColorGroupChanged: { if (root.provider === "naive" || root.provider === "blapples") _syncAndFetch() }
 
     function _syncAndFetch() {
         if (root.missingKey) return
         OnlineWallpapers.provider   = root.provider
         OnlineWallpapers.resolution = root.resolution
+        OnlineWallpapers.colorGroup = root.colorGroup
         OnlineWallpapers.fetch()
     }
 
@@ -183,7 +186,7 @@ Item {
         anchors.fill: parent
         visible: !root.missingKey
 
-        GridView {
+        StyledGridView {
             id: grid
             anchors {
                 top: parent.top
@@ -198,6 +201,7 @@ Item {
             cellWidth: width / root.columns
             cellHeight: cellWidth / root.previewCellAspectRatio
             interactive: true
+            acceptedButtons: Qt.NoButton
             clip: true
             boundsBehavior: Flickable.StopAtBounds
 
@@ -236,7 +240,7 @@ Item {
                             ? Qt.rgba(
                                 Appearance.colors.colPrimary.r,
                                 Appearance.colors.colPrimary.g,
-                                Appearance.colors.colPrimary.b, 0.35)
+                                Appearance.colors.colPrimary.b, 0.15)
                             : "transparent"
                         border.width: delegateItem.index === grid.currentIndex ? 2 : 0
                         border.color: Appearance.colors.colPrimary

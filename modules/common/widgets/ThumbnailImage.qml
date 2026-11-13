@@ -42,14 +42,25 @@ StyledImage {
         id: thumbnailGeneration
         command: {
             const maxSize = Images.thumbnailSizes[root.thumbnailSizeName];
-            return ["bash", "-c", 
-                `[ -f '${FileUtils.trimFileProtocol(root.thumbnailPath)}' ] && exit 0 || { magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} '${FileUtils.trimFileProtocol(root.thumbnailPath)}' && exit 1; }`
-            ]
+            const thumbPath = FileUtils.trimFileProtocol(root.thumbnailPath);
+            // Paths are passed as positional args ($1..$3), never interpolated into the
+            // script, so quotes in file names can neither break nor inject into it.
+            // Exit codes: 0 = already cached, 1 = generated, 2 = failed.
+            return ["bash", "-c", `
+                thumb="$1"; src="$2"; max="$3"
+                [ -f "$thumb" ] && exit 0
+                mkdir -p "$(dirname "$thumb")"
+                tmp="$thumb.$$.tmp.png"
+                trap 'kill "$pid" 2>/dev/null; rm -f "$tmp"' EXIT
+                magick "$src" -resize "$max"x"$max" "$tmp" & pid=$!
+                wait "$pid" && mv "$tmp" "$thumb" && exit 1
+                exit 2
+            `, "_", thumbPath, root.sourcePath, `${maxSize}`]
         }
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 1) { // Force reload if thumbnail had to be generated
+            if (exitCode === 1) {
                 root.source = "";
-                root.source = root.thumbnailPath; // Force reload
+                root.source = root.thumbnailPath;
             }
         }
     }

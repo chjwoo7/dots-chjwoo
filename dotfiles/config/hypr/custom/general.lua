@@ -1,9 +1,0 @@
--- focus_on_activate is deliberately left at the stock `true` here.
---
--- Turning it off globally also killed the useful half: clicking a link no
--- longer took you to the browser. The chat apps that actually misbehave are
--- handled per-app in custom/rules.lua instead.
---
--- These are two different windows asking, which is why the split works:
---   notification  -> Telegram asks to be activated   -> suppressed by rule
---   link click    -> the browser asks to be activated -> allowed through

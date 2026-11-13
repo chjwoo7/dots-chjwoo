@@ -6,25 +6,21 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 
-// Custom widget (bukan bagian dari upstream end4-pC). Isinya dua tombol:
-//  1. Toggle ideapad_laptop conservation_mode — batasi charge baterai ~60%.
-//     Butuh udev rule biar sysfs group-writable oleh `wheel` (60-ideapad-conservation.rules).
-//     Hover di tombolnya nampilin popup status On/Off, sama gayanya dgn popup baterai.
-//  2. Snip + anotasi pakai satty. Sama persis dgn keybind CTRL+Print.
+// Custom widget (bukan bagian dari upstream end4-pC).
+// Toggle ideapad_laptop conservation_mode — batasi charge baterai ~60%.
+// Butuh udev rule biar sysfs group-writable oleh `wheel` (60-ideapad-conservation.rules).
+// Hover di tombolnya nampilin popup status On/Off, sama gayanya dgn popup baterai.
 Item {
     id: root
 
     readonly property string conservationPath: "/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode"
-
-    // Dijaga sinkron dengan keybind CTRL+Print di ~/.config/hypr/custom/keybinds.lua
-    readonly property string snipCommand: "grim -g \"$(slurp)\" - | satty -f - --early-exit --actions-on-enter save-to-clipboard --copy-command wl-copy --initial-tool rectangle"
 
     property bool conservationOn: false
     property bool available: false
     property bool writable: false
 
     property bool vertical: Config.options.bar.vertical
-    property bool isMaterial: Config.options.bar.cornerStyle === 3
+    property bool isMaterial: Config.options.bar.cornerStyle === 3 || Config.options.bar.cornerStyle === 4
 
     implicitWidth: isMaterial && !root.vertical ? flow.implicitWidth
                  : root.vertical ? Appearance.sizes.verticalBarWidth - 14
@@ -98,7 +94,7 @@ Item {
         flow: root.vertical ? Flow.TopToBottom : Flow.LeftToRight
         spacing: root.isMaterial ? 2 : 4
 
-        // Tombol 1: toggle conservation mode.
+        // Toggle conservation mode.
         // Dibungkus Item supaya punya `containsMouse` buat hoverTarget StyledPopup.
         // Hover dibaca lewat HoverHandler, bukan MouseArea pembungkus, biar hover
         // milik tombol di dalamnya (UtilButton/RippleButton) tidak ketelan.
@@ -209,33 +205,6 @@ Item {
                     color: root.conservationOn ? Appearance.colors.colPrimary
                                                : Appearance.colors.colOnLayer2
                     Behavior on color { ColorAnimation { duration: 200 } }
-                }
-            }
-        }
-
-        // --- Tombol 2: snip + anotasi (satty) ---
-        Loader {
-            sourceComponent: root.isMaterial ? snipM3 : legacySnip
-        }
-
-        Component {
-            id: snipM3
-            UtilButton {
-                iconText: "screenshot_region"
-                onClicked: Quickshell.execDetached(["bash", "-c", root.snipCommand])
-            }
-        }
-
-        Component {
-            id: legacySnip
-            CircleUtilButton {
-                onClicked: Quickshell.execDetached(["bash", "-c", root.snipCommand])
-                MaterialSymbol {
-                    horizontalAlignment: Qt.AlignHCenter
-                    fill: 0
-                    text: "screenshot_region"
-                    iconSize: Appearance.font.pixelSize.large
-                    color: Appearance.colors.colOnLayer2
                 }
             }
         }

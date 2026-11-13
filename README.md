@@ -1,40 +1,105 @@
+
+
+
+
 <div align="center">
 
-# 💠 dots-chjwoo
+# dots-chjwoo
 
-**A personal fork of [end4-pC](https://github.com/pctrade/end4-pC) by [@pctrade](https://github.com/pctrade),**
-**which is itself a fork of [illogical-impulse](https://github.com/end-4/dots-hyprland) by [@end-4](https://github.com/end-4)**
+Based on [pctrade/end4-pC](https://github.com/pctrade/end4-pC),
+itself a fork of [illogical-impulse](https://github.com/end-4/dots-hyprland).
 
-Maintained by **chjwoo** for personal use
+[English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
 </div>
 
 ---
 
-## About
+## Local carryovers
 
-This is not an original rice. Practically everything you see — the bar,
-sidebars, overview, lock screen, Material You theming, the whole visual
-language — was designed and written by the people credited below. This fork
-exists so I have somewhere to keep my own tweaks without having to work
-around someone else's repository.
+The shell follows `pctrade/end4-pC` (currently `81353515`, November 7, 2026)
+with only these four local features:
 
-Lineage:
+- **Battery conservation mode:** `ChjwooUtils.qml` toggles the Lenovo
+  IdeaPad/Legion charge cap and shows its status on hover.
+- **Cheatsheet:** keybind reference and periodic table, opened with
+  `SUPER + /` when the `quickshell:cheatsheetToggle` binding is configured.
+- **Animated custom images:** GIF, WebP and MNG animation in the desktop
+  custom-image widget, retaining upstream's resizing, shapes and drag/drop.
+- **Targeted focus rules:** suppress activation requests from Telegram,
+  Discord, Vesktop and WebCord without disabling browser activation globally.
 
+The old bulk dotfile snapshot, installer, sync script, custom color controls,
+Satty shortcut/button and terminal-theme write changes are not carried.
+Inherited upstream features remain available; this is not a stripped-down
+shell. `dotfiles/` now contains only the focus rules and battery udev rule.
+Removing the snapshots does not remove applications or change live configs.
+
+### Battery conservation setup
+
+In Settings or Dashboard's bar layout editor, add **Battery conservation**
+to a bar section. Its layout ID is `chjwooUtils`. Existing saved layouts
+are not changed automatically.
+
+The button requires this hardware attribute:
+
+```bash
+ls -l /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode
 ```
-illogical-impulse  (end-4)
-  └─ end4-pC       (pctrade)
-       └─ dots-chjwoo  (this fork)
+
+For users in the `wheel` group, install and apply the permission rule:
+
+```bash
+cd ~/.config/quickshell/dots-chjwoo
+sudo install -m 644 dotfiles/system/60-ideapad-conservation.rules /etc/udev/rules.d/
+sudo udevadm control --reload
+sudo udevadm trigger -c bind -s platform
+test -w /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode && echo writable
 ```
 
-If you like how this looks, star [dots-hyprland](https://github.com/end-4/dots-hyprland)
-and [end4-pC](https://github.com/pctrade/end4-pC) — that is where the work is.
+Restart the shell after applying the rule. A lock icon means the attribute
+is not writable; the button hides on unsupported hardware. The widget and
+rule currently target `VPC2004:00`; adjust both if your device differs.
+
+### Focus rules setup
+
+Keep your existing Hyprland configuration. Add this line to its
+`~/.config/hypr/custom/rules.lua` rather than overwriting your rules:
+
+```lua
+dofile(os.getenv("HOME") .. "/.config/quickshell/dots-chjwoo/dotfiles/config/hypr/custom/rules.lua")
+```
+
+Reload Hyprland and restart the affected chat apps for the rules to apply.
+
+### Following the parent fork
+
+The `upstream` remote points to `https://github.com/pctrade/end4-pC.git`.
+After committing local work, update with:
+
+```bash
+git fetch upstream
+git merge upstream/main
+```
+
+Keep personal application settings outside this shell checkout; add only
+small, intentional overrides instead of restoring an old complete config.
+
+---
+
+## 🎬 Showcase
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=o0Vsh7eVchs">
+    <img src="https://img.youtube.com/vi/o0Vsh7eVchs/maxresdefault.jpg" alt="Material 3 Expressive x Linux" width="85%" style="border-radius: 12px; box-shadow: 0px 10px 30px rgba(0,0,0,0.5);"/>
+  </a>
+</p>
+
+</div>
+
+---
 
 ## 📸 Screenshots
-
-> The screenshots below are inherited from end4-pC and show the shared shell,
-> not changes specific to this fork.
-
 <div align="center">
 
 | 🎵 Lyrics | 🖼️ Online Wallpapers |
@@ -49,249 +114,60 @@ and [end4-pC](https://github.com/pctrade/end4-pC) — that is where the work is.
 
 ---
 
+## 🎨 Community Presets
+
+Share your whole desktop with one button, or try someone else's in a click.
+
+**[end4-pCpresets](https://github.com/pctrade/end4-pCpresets)** is the community gallery for this shell. Open **Dashboard → Presets**, pick a preset and press **Download** to try it or **Install** to keep it. Made your own? Press **Upload**, choose a screenshot and it is sent for you with one click. The first time, a terminal opens to install the [GitHub CLI](https://cli.github.com) (`gh`) and sign you in, which takes a minute. If you skip that, the shell opens a GitHub page where you drag the folder in instead. Changed your mind? **Remove from gallery** takes your own preset back out.
+
+- 🔒 **Private by design:** nothing is collected from you. The shell only reads public files from GitHub.
+- 🧹 **Clean exports:** personal paths, keys and commands are removed before anything is shared.
+- ✅ **Every preset is checked** automatically. First-time authors are reviewed by hand, and trusted authors are merged automatically once the check passes.
+- 👤 **Yours stays yours:** only the person who shared a preset can change or remove it.
+
+[Browse the gallery](https://github.com/pctrade/end4-pCpresets) · [How to share yours](https://github.com/pctrade/end4-pCpresets#share-your-preset)
+
+---
+
 ## ⚡ Installation
 
 > [!NOTE]
-> This fork replaces the **Quickshell config only**. It does not install
-> Hyprland, the fonts, matugen or any of the other machinery the shell talks
-> to, so a working [illogical-impulse](https://github.com/end-4/dots-hyprland)
-> install has to be in place first. Like its parent it lives in its own
-> configuration folder and never overwrites an existing one.
-
-### Requirements
-
-- **illogical-impulse installed and working** — i.e. `qs -c ii` (or `end4-pC`,
-  or whatever you run today) already gives you a bar.
-- **`satty`** — the only extra package this fork needs, for the annotate half
-  of the screenshot button. `grim`, `slurp` and `wl-clipboard` already come in
-  with illogical-impulse.
-- **A Lenovo IdeaPad/Legion laptop** — only for the conservation-mode button.
-  On hardware without a `conservation_mode` attribute the button hides itself
-  and the rest of the shell is unaffected.
-
-### Install
+> This fork manages its own configuration folder independently — it does **not** overwrite or modify any existing setup. However, it does require [illogical-impulse](https://github.com/end-4/dots-hyprland) to be installed and running.
 
 ```bash
 cd ~/.config/quickshell/
 git clone https://github.com/chjwoo7/dots-chjwoo.git
-cd dots-chjwoo
-./install.sh
+killall qs 2>/dev/null; qs -c dots-chjwoo > /dev/null 2>&1 & disown
 ```
 
-On a clean illogical-impulse install that is the whole thing. The script
-selects this config in Hyprland, adds the `ChjwooUtils` widget to the bar,
-installs the udev rule for battery conservation mode if the machine has it,
-and restarts the shell. Running it again changes nothing, and anything it
-replaces is copied to `~/dots-chjwoo-backup-<timestamp>/` first.
+### 🔧 Set as your default shell (optional)
 
-| flag | what it adds |
-|---|---|
-| `--full` | also restores the rest of the rice from `dotfiles/` — kitty, fish, GTK, Hyprland, `~/.bashrc`. The "rebuild my own machine" switch: it overwrites live configuration, and some of what it writes is personal rather than portable ([details below](#installing-it)) |
-| `--no-restart` | leaves the running shell alone |
-
-Log out and back in when it finishes. Hyprland reads `qsConfig` at startup, so
-until then the new session variable is not set — the script starts the shell
-by hand to cover the gap.
-
-### Doing it by hand
-
-<details>
-<summary>The same four steps, if you would rather not run a script</summary>
-
-### 1. Clone the shell
+To load this fork by default, add the following override to:
 
 ```bash
-cd ~/.config/quickshell/
-git clone https://github.com/chjwoo7/dots-chjwoo.git
+~/.config/hypr/custom/variables.lua
 ```
 
-### 2. Point Hyprland at it
-
-Put this in `~/.config/hypr/custom/variables.lua` — the override file that
-`hyprland/variables.lua` itself recommends, so no stock file needs editing:
+Set the shell configuration name:
 
 ```lua
 hl.env("qsConfig", "dots-chjwoo")
 ```
 
-Everything else (`execs.lua`, `keybinds.lua`, the settings launcher) already
-refers to `$qsConfig`, so it follows automatically.
-
-`hl.env` is read when Hyprland starts, so that line takes effect at your next
-login. To switch the running session over right away:
-
-```bash
-killall qs 2>/dev/null; qs -c dots-chjwoo > /dev/null 2>&1 & disown
-```
-
-### 3. Put the ChjwooUtils widget in the bar
-
-The bar layout lives in `~/.config/illogical-impulse/config.json`, which is
-outside this repository, and the stock layout has never heard of this fork's
-widget. Cloning alone is therefore not enough to see it: add `"chjwooUtils"`
-to `bar.layouts.rightLayout`.
-
-```json
-"rightLayout": ["sysTray", "utilButtons", "chjwooUtils", "batteryIndicator", "systemIcons", "powerButton"]
-```
-
-Or from the shell — safe to run twice, it will not add a second copy:
-
-```bash
-cfg=~/.config/illogical-impulse/config.json
-jq '.bar.layouts.rightLayout = ((.bar.layouts.rightLayout // ["sysTray","utilButtons","systemIcons","powerButton"])
-      | if index("chjwooUtils") then . else
-          reduce .[] as $w ([]; . + [$w] + (if $w == "utilButtons" then ["chjwooUtils"] else [] end))
-        end)' "$cfg" > "$cfg.new" && mv "$cfg.new" "$cfg"
-```
-
-Reload the shell afterwards with `CTRL + SUPER + R`.
-
-### 4. Battery conservation mode (IdeaPad/Legion only)
-
-The toggle writes to a sysfs attribute that is root-owned by default. A udev
-rule hands it to the `wheel` group so the unprivileged shell can flip it.
-
-First check the machine actually has it, and that you are in `wheel`:
-
-```bash
-ls /sys/bus/platform/drivers/ideapad_acpi/*/conservation_mode
-groups | tr ' ' '\n' | grep -x wheel
-```
-
-Then install the rule and apply it without rebooting:
-
-```bash
-cd ~/.config/quickshell/dots-chjwoo
-sudo install -m 644 dotfiles/system/60-ideapad-conservation.rules /etc/udev/rules.d/
-sudo udevadm control --reload
-sudo udevadm trigger -c bind -s platform
-```
-
-Verify — the group must be `wheel` and the mode `664`:
-
-```bash
-$ ls -l /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode
--rw-rw-r-- 1 root wheel 4096 ... conservation_mode
-```
-
-If it still says `root root`, the button renders as a padlock instead of a
-toggle — that is the deliberate signal that the rule did not land. Both the
-rule and `ChjwooUtils.qml` hardcode the device name `VPC2004:00`; if your
-machine enumerates it differently, the `ls` above tells you the real name and
-both files need that name instead.
-
-</details>
+Log out and back in for the environment change to take effect. To try the
+shell in the current session, use the launch command above.
 
 ---
 
-## 🗂️ The `dotfiles/` folder
+### ⚙️ Settings keybind
 
-The shell is only half of a rice. Steps 2 and 3 above set up the two pieces
-that live outside this repository by hand; `dotfiles/` is the rest of the
-configuration, kept here so the whole setup can be rebuilt rather than
-reassembled from memory.
+To open the settings panel, add this to your Hyprland config:
 
-```
-dotfiles/
-├── config/     mirrors ~/.config  (hypr, illogical-impulse, kitty, fish,
-│               fuzzel, wlogout, cava, matugen, Kvantum, GTK themes, ...)
-├── home/       ~/.bashrc, ~/.zshrc, ~/.bash_profile, ~/.gtkrc-2.0
-└── system/     udev rule for Legion/IdeaPad battery conservation mode
+```lua
+hl.bind("SUPER + escape", hl.dsp.global("quickshell:settingsToggle"), {description = "Toggle settings"})
 ```
 
-Two files in there matter more than the rest:
-
-- `config/hypr/custom/variables.lua` — sets `qsConfig` to this config. Without
-  it Hyprland keeps loading whatever it loaded before.
-- `config/illogical-impulse/config.json` — shell settings, including the bar
-  layout that places the `ChjwooUtils` widget. The QML file alone is not
-  enough for the widget to appear.
-
-### Installing it
-
-Optional — the shell runs fine without it. This is for rebuilding this exact
-rice on a fresh machine, and it **overwrites** live configuration.
-
-```bash
-./install.sh --full
-```
-
-which is the plain install plus these copies, with a backup of everything it
-replaces:
-
-```bash
-cp -r dotfiles/config/. ~/.config/
-cp -r dotfiles/home/.   ~/       # .bashrc, .zshrc, .bash_profile, .gtkrc-2.0
-sudo install -m 644 dotfiles/system/60-ideapad-conservation.rules /etc/udev/rules.d/
-sudo udevadm control --reload
-sudo udevadm trigger -c bind -s platform
-```
-
-A few of the copied files are personal rather than portable, and are worth
-fixing up afterwards on someone else's machine:
-
-- `config/illogical-impulse/config.json` — `wallpaperPath`, the lock-screen
-  background and the screen-recording `savePath` are absolute paths under
-  `/home/chjwoo`.
-- `config/spicetify/config-xpui.ini` — same, absolute paths.
-- `config/hypr/hyprland/variables.lua` — ships with `qsConfig` set to
-  `end4-pC`; the `custom/variables.lua` override from step 2 is what actually
-  selects this fork.
-
-### Keeping it up to date
-
-`dotfiles/` holds copies, not the live files. After changing anything under
-`~/.config`, re-sync before committing:
-
-```bash
-./sync-dotfiles.sh
-git add dotfiles && git commit -m "sync dotfiles"
-```
-
-The script skips `*.bak*` files and the illogical-impulse installer manifest.
-It never touches application data such as browser or Discord profiles.
-
----
-
-## ✨ Changes in this fork
-
-### Cheatsheet, restored
-
-end4-pC removed the cheatsheet module in commit `4c80a65` ("remove waffles
-thing"), which left `SUPER + /` dispatching the global
-`quickshell:cheatsheetToggle` with nothing listening for it. It is back here,
-using the upstream illogical-impulse look.
-
-Three things were needed, and each one hid the next:
-
-- `modules/ii/cheatsheet/` — the module itself, from upstream illogical-impulse.
-- `services/CheatsheetBinds.qml` — a service reading `hyprctl binds -j`. It is
-  added **alongside** `HyprlandKeybinds` rather than replacing it: the
-  illogical-impulse cheatsheet wants a flat array, while `LauncherSearch.qml`
-  in this fork still depends on the older tree-shaped service. Swapping it
-  would quietly break launcher search.
-- `modules/common/Config.qml` — the `cheatsheet` options block, restored.
-  Without it `Config.options.cheatsheet.fontSize.key` is undefined, and the
-  keycaps render blank while the labels still show.
-
-### Custom bar widget
-
-`modules/ii/bar/ChjwooUtils.qml` is a new file rather than an edit to
-`UtilButtons.qml`, so pulling from upstream can never conflict with it. It
-holds two buttons:
-
-- **Battery conservation mode** — toggles the IdeaPad/Legion charge cap
-  (~60%) through `ideapad_laptop`'s sysfs attribute, which the udev rule in
-  `dotfiles/system/` makes group-writable. Hovering it opens a popup with the
-  current On/Off state, using the same `StyledPopup` component as the battery
-  indicator. The icon becomes a padlock when the attribute is not writable.
-- **Snip and annotate** — `grim` into `satty`, mirroring the `CTRL + Print`
-  keybind. The command lives in two places that have to stay in sync: this
-  file and `hypr/custom/keybinds.lua`.
-
-It only appears once `"chjwooUtils"` is in the bar layout — see step 3 of the
-installation.
+> **Note:** Settings is an overlay panel, not a regular window — `Super + Q` won't close it. Use the same keybind to toggle it or press `Escape`.
 
 ---
 
@@ -299,33 +175,22 @@ installation.
 
 ### How do I see my keybinds?
 
-Press `SUPER + /` for the cheatsheet, or open the launcher (`SUPER`) and type
-`<` for the same list in search form.
+Open the launcher (`SUPER`) and type `<` — it'll show you the full list of configured keybinds.
 
 ### Why doesn't Settings have a search bar?
 
-It doesn't need one — the launcher already does that job. Open the launcher
-(`SUPER`) and type what you're looking for (e.g. `wallpaper`, `bar`, `blur`);
-it matches page names and section keywords and jumps straight to the right
-Settings page.
+It doesn't need one — the launcher already does that job. Open the launcher (`SUPER`) and just type what you're looking for (e.g. `wallpaper`, `bar`, `blur`); it'll match against page names and section keywords and jump you straight to the right Settings page, so there's no need for a separate search inside Settings itself.
 
 ---
 
 ## 🙏 Credits
 
-This fork exists because of other people's work:
+Huge thanks to the people who made this possible:
 
 - **[@end-4](https://github.com/end-4)** — for creating the original [dots-hyprland](https://github.com/end-4/dots-hyprland) / illogical-impulse shell. An absolute masterpiece of a dotfiles project 🫡
-- **[@pctrade](https://github.com/pctrade)** — for [end4-pC](https://github.com/pctrade/end4-pC), the fork this one is built on, and for maintaining it 🙌
-
-Carried over from end4-pC's own credits, for contributions still present in
-this code:
-
-- **[@gh0stzk](https://github.com/gh0stzk)** — for the weather API integration behind the weather widget 🙌
-- **[@StarS2112](https://github.com/StarS2112)** — for showcasing that fork 🙌
+- **[@gh0stzk](https://github.com/gh0stzk)** — for providing the weather API integration that made the weather widget possible 🙌
+- **[@StarS2112](https://github.com/StarS2112)** — for showcasing this fork 🙌
 - **[@simeulinuxkaliaiwr](https://github.com/simeulinuxkaliaiwr)** — for some shader transitions 🎨
-
-Please respect the licenses of the upstream projects when reusing anything here.
 
 ---
 
